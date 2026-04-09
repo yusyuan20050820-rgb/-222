@@ -1,0 +1,180 @@
+<<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>幻獸召喚系統 - 玩家背包版</title>
+    <style>
+        /* --- 基礎樣式 --- */
+        body { 
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; 
+            background-color: #f4f4f9; 
+            text-align: center; 
+            margin: 0; padding: 20px; 
+        }
+
+        /* --- 遊戲說明區 --- */
+        .game-instructions {
+            background: #ffffff;
+            border-left: 10px solid #333;
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 800px;
+            text-align: left;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 10px; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; color: white; }
+        .tag.ssr { background-color: #ffcc00; }
+        .tag.sr  { background-color: #a335ee; }
+        .tag.r   { background-color: #007bff; }
+        .tag.n   { background-color: #888888; }
+
+        /* --- 抽卡按鈕 --- */
+        .draw-container { margin: 30px 0; }
+        button {
+            padding: 12px 30px; font-size: 1.1em; cursor: pointer;
+            background-color: #333; color: white; border: none;
+            border-radius: 8px; transition: 0.2s; margin: 0 10px;
+        }
+        button:hover { background-color: #555; transform: scale(1.05); }
+
+        /* --- 本次抽卡結果展示區 --- */
+        #result-display {
+            display: flex; justify-content: center; flex-wrap: wrap;
+            gap: 20px; margin-bottom: 50px; min-height: 250px;
+        }
+        .card {
+            width: 180px; background: white; border-radius: 15px;
+            padding: 15px; border: 4px solid #ccc; position: relative;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .card img { width: 100%; height: 180px; object-fit: cover; border-radius: 8px; }
+        .ssr { border-color: #ffcc00; box-shadow: 0 0 20px rgba(255, 204, 0, 0.5); }
+        .sr  { border-color: #a335ee; }
+        .r   { border-color: #007bff; }
+        .n   { border-color: #888888; }
+
+        /* --- 🎒 玩家背包樣式 (主線任務二重點) --- */
+        .inventory-section {
+            margin-top: 50px; padding: 20px;
+            background-color: #ddd; border-radius: 20px;
+        }
+        .inventory-container {
+            display: flex; flex-wrap: wrap; justify-content: center;
+            gap: 10px; margin-top: 20px;
+        }
+        .inv-card {
+            width: 80px; background: white; padding: 5px;
+            border: 2px solid #bbb; border-radius: 8px;
+            text-align: center; font-size: 11px;
+        }
+        .inv-card img { width: 100%; height: 100px; object-fit: cover; border-radius: 4px; }
+        .inv-name { margin-top: 5px; font-weight: bold; color: #333; overflow: hidden; white-space: nowrap; }
+
+    </style>
+</head>
+<body>
+
+    <h1>✨ 幻獸召喚系統 ✨</h1>
+
+    <div class="game-instructions">
+        <h2>卷軸任務：召喚師指南</h2>
+        <div class="info-grid">
+            <div><strong>開發者：</strong> 41200217</div>
+            <div>
+                <strong>機率分配：</strong>
+                <span class="tag ssr">SSR 2%</span> <span class="tag sr">SR 15%</span>
+                <span class="tag r">R 33%</span> <span class="tag n">50%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="draw-container">
+        <button onclick="handleDraw(1)">單抽召喚</button>
+        <button onclick="handleDraw(10)">十連召喚</button>
+    </div>
+
+    <div id="result-display"></div>
+
+    <div class="inventory-section">
+        <h2>🎒 我的卡片盒 (已收集：<span id="inv-count">0</span> 張)</h2>
+        <div id="inventory-display" class="inventory-container">
+            </div>
+    </div>
+
+    <script>
+        // 1. 定義玩家背包 (Array)
+        let inventory = []; 
+
+        const cardData = [
+            { id: 1, rarity: "SSR", name: "闇黑龍", img: "carddd/1.jpg", chance: 1, className: "ssr" },
+            { id: 2, rarity: "SSR", name: "光之守護者", img: "carddd/2.jpg", chance: 1, className: "ssr" },
+            { id: 3, rarity: "SR", name: "闇影刺客", img: "carddd/3.jpg", chance: 7, className: "sr" },
+            { id: 4, rarity: "SR", name: "銀翼弓箭手", img: "carddd/4.jpg", chance: 8, className: "sr" },
+            { id: 5, rarity: "R", name: "森林遊俠", img: "carddd/5.jpg", chance: 15, className: "r" },
+            { id: 6, rarity: "R", name: "深海祭司", img: "carddd/6.jpg", chance: 18, className: "r" },
+            { id: 7, rarity: "N", name: "哥布林工兵", img: "carddd/7.jpg", chance: 25, className: "n" },
+            { id: 8, rarity: "N", name: "初級冒險者", img: "carddd/8.jpg", chance: 25, className: "n" }
+        ];
+
+        function handleDraw(count) {
+            const display = document.getElementById('result-display');
+            display.innerHTML = ""; 
+
+            for (let i = 0; i < count; i++) {
+                const card = getRandomCard();
+                
+                // Step 1: 存入陣列 (Push)
+                inventory.push(card); 
+                
+                // 渲染主顯示區
+                display.innerHTML += createCardHTML(card);
+            }
+            
+            // Step 3: 渲染背包內容
+            updateInventoryUI();
+        }
+
+        function getRandomCard() {
+            const rand = Math.floor(Math.random() * 100) + 1;
+            let cumulative = 0;
+            for (let card of cardData) {
+                cumulative += card.chance;
+                if (rand <= cumulative) return card;
+            }
+        }
+
+        // 主畫面大卡片 HTML
+        function createCardHTML(card) {
+            return `
+                <div class="card ${card.className}">
+                    <img src="${card.img}" onerror="this.src='https://via.placeholder.com/200x200?text=圖片路徑錯誤'">
+                    <div class="card-info">
+                        <div class="rarity-label">[${card.rarity}]</div>
+                        <div class="card-name">${card.name}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Step 3: 遍歷背包並更新 UI
+        function updateInventoryUI() {
+            const invDisplay = document.getElementById('inventory-display');
+            const invCount = document.getElementById('inv-count');
+            
+            invDisplay.innerHTML = ""; // 先清空
+            invCount.innerText = inventory.length; // 更新總數
+
+            inventory.forEach((item) => {
+                invDisplay.innerHTML += `
+                    <div class="inv-card ${item.className}">
+                        <img src="${item.img}" onerror="this.src='https://via.placeholder.com/80x100?text=Error'">
+                        <div class="inv-name">${item.name}</div>
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
